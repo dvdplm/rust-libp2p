@@ -169,12 +169,21 @@ pub fn inbound_from_ref_and_wrap<P>(
     muxer: P,
 ) -> impl Future<Item = Option<SubstreamRef<P>>, Error = IoError>
 where
-    P: Deref + Clone,
-    P::Target: StreamMuxer,
+    P: Deref + Clone + std::fmt::Debug,
+    P::Target: StreamMuxer + std::fmt::Debug,
+    <P::Target as StreamMuxer>::Substream: std::fmt::Debug,
 {
+    trace!("[inbound_from_ref_and_wrap] START");
     let muxer2 = muxer.clone();
-    future::poll_fn(move || muxer.poll_inbound())
-        .map(|substream| substream.map(move |s| substream_from_ref(muxer2, s)))
+    future::poll_fn(move || {
+        trace!("[inbound_from_ref_and_wrap] calling poll_inbound on muxer={:?}", muxer);
+        let out = muxer.poll_inbound();
+        trace!("[inbound_from_ref_and_wrap] called poll_inbound, out={:?}", out);
+        out
+    }).map(|substream| {
+        trace!("[inbound_from_ref_and_wrap, map] substream={:?}", substream);
+        substream.map(move |s| substream_from_ref(muxer2, s))
+    })
 }
 
 /// Same as `outbound_from_ref`, but wraps the output in an object that
